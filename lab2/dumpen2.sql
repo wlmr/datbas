@@ -21,11 +21,10 @@ CREATE TABLE theatres
 
 CREATE TABLE movies
 (
-    title text, --compound key with year
-    imdb text primary key, --invented key, primary
+    title text unique, --compound key with year
+    imdb text primary key unique, --invented key, primary
     year int,
-    running_time int,
-    unique(title)
+    running_time int
 );
 
 
@@ -41,20 +40,19 @@ CREATE TABLE performances
     theatre_name text, --compound with start_time, foreign key -> theatres
     movie_title text, --foreign key -> movies
     start_time datetime,
-    performance_id int unique,
+    performance_id int unique primary key,
     FOREIGN KEY (movie_title) REFERENCES movies(title), --Might have to be the IMDB-key instead?
     FOREIGN KEY (theatre_name) REFERENCES theatres(theatre_name)
 );
 CREATE TABLE tickets
 (
-    identifier text unique primary key, --primary key
+    identifier text unique primary key default (lower(hex(randomblob(16)))), --primary key
     performance_id int, -- OwO
     FOREIGN KEY (performance_id) REFERENCES performances(performance_id)
 );
 
 INSERT INTO theatres VALUES('SF Lund',160);
 INSERT INTO theatres VALUES('Kino Lund',80);
-
 
 INSERT INTO movies VALUES('The Dark Knight','tt8353619',2008,152);
 INSERT INTO movies VALUES('The Lord of the Rings: The Return of the King','tt2164409',2003,201);
