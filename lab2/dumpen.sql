@@ -39,7 +39,8 @@ CREATE TABLE performances
 (
     theatre_name text, --compound with start_time, foreign key -> theatres
     movie_title text, --foreign key -> movies
-    start_time datetime,
+    start_date date,
+    start_time time,
     performance_id int unique primary key,
     FOREIGN KEY (movie_title) REFERENCES movies(title), --Might have to be the IMDB-key instead?
     FOREIGN KEY (theatre_name) REFERENCES theatres(theatre_name)
@@ -63,10 +64,10 @@ INSERT INTO customers VALUES('jonas90','Jonas Eriksson','516b98488eff166d9f10c4a
 INSERT INTO customers VALUES('johanna91','Johanna Johansson','d87e991a1844439c25248886243b9d07');
 
 
-insert into performances values('SF Lund','The Dark Knight','2019-02-14 18:00:00',23712371);
-insert into performances values('SF Lund','Inception','2019-02-16 20:00:00',23115378);
-insert into performances values('SF Lund','Interstellar','2019-03-01 20:00:00',43375372);
-insert into performances values('Kino Lund','Interstellar','2019-03-03 19:00:00',82365932);
+insert into performances values('SF Lund','The Dark Knight','2019-02-14', '18:00',23712371);
+insert into performances values('SF Lund','Inception','2019-02-16', '20:00',23115378);
+insert into performances values('SF Lund','Interstellar','2019-03-01', '20:00',43375372);
+insert into performances values('Kino Lund','Interstellar','2019-03-03', '19:00',82365932);
 
 insert into tickets values(hex(randomblob(16)), 82365932);
 insert into tickets values(hex(randomblob(16)), 82365932);
