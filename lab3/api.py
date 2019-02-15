@@ -3,6 +3,8 @@ import sqlite3
 import json
 import os
 
+from hashlib import sha256
+
 HOST = 'localhost'
 PORT = 4568
 
@@ -70,11 +72,22 @@ def ping():
 
 @post('/reset')
 def reset():
-    #response.status_code = 200
+    def _hash(pwd: str) -> str:
+        sh = sha256()
+        sh.update(pwd.encode(encoding='utf-8'))
+        return sh.hexdigest()
+
     with open(f'{schema_path}/reset.sql', 'r') as f:
         sqls = f.read()
     conn.executescript(sqls)
+
+    users = [('alice', 'Alice', 'dobido'),
+             ('bob', 'Bob', 'whatsinaname')]
+    for uname, name, plainpwd in users:
+        command = f"INSERT INTO customers(username, name, pwd) values('{uname}', '{name}', '{_hash(plainpwd)}')"
+
     # TODO! reset database!
+    response.status = 200
     return "OK"
 
 @post('/students')
