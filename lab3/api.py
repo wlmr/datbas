@@ -61,6 +61,16 @@ def get_student(id):
     return format_response({"data": s})
 
 
+@get('/ping')
+def ping():
+    return "pong"
+
+@post('/reset')
+def reset():
+    response.status_code = 200
+    # TODO! reset database!
+    return "OK"
+
 @post('/students')
 def post_student():
     response.content_type = 'application/json'
