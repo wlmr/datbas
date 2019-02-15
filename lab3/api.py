@@ -76,7 +76,7 @@ def reset():
         sh = sha256()
         sh.update(pwd.encode(encoding='utf-8'))
         return sh.hexdigest()
-
+    cursor = conn.cursor()
     with open(f'{schema_path}/reset.sql', 'r') as f:
         sqls = f.read()
     conn.executescript(sqls)
@@ -85,7 +85,9 @@ def reset():
              ('bob', 'Bob', 'whatsinaname')]
     for uname, name, plainpwd in users:
         command = f"INSERT INTO customers(username, name, pwd) values('{uname}', '{name}', '{_hash(plainpwd)}')"
-
+        print("Executing {}".format(command))
+        cursor.execute(command)
+    conn.commit()
     # TODO! reset database!
     response.status = 200
     return "OK"
