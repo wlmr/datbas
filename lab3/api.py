@@ -1,10 +1,13 @@
 from bottle import get, post, run, request, response
 import sqlite3
 import json
-
+import os
 
 HOST = 'localhost'
 PORT = 4568
+
+schema_path = os.path.abspath('schemas')
+print(schema_path)
 
 conn = sqlite3.connect("applications.sqlite")
 
@@ -67,7 +70,10 @@ def ping():
 
 @post('/reset')
 def reset():
-    response.status_code = 200
+    #response.status_code = 200
+    with open(f'{schema_path}/reset.sql', 'r') as f:
+        sqls = f.read()
+    conn.executescript(sqls)
     # TODO! reset database!
     return "OK"
 
