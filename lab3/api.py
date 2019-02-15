@@ -8,8 +8,8 @@ from hashlib import sha256
 HOST = 'localhost'
 PORT = 4568
 
-schema_path = os.path.abspath('schemas')
-print(schema_path)
+_schema_path = 'schemas'
+
 
 conn = sqlite3.connect("applications.sqlite")
 
@@ -77,12 +77,12 @@ def reset():
         sh.update(pwd.encode(encoding='utf-8'))
         return sh.hexdigest()
     cursor = conn.cursor()
-    with open(f'{schema_path}/reset.sql', 'r') as f:
+    with open(os.path.join(_schema_path, 'reset.sql'), 'r') as f:
         sqls = f.read()
     conn.executescript(sqls)
 
-    users = [('alice', 'Alice', 'dobido'),
-             ('bob', 'Bob', 'whatsinaname')]
+    users = (('alice', 'Alice', 'dobido'),
+             ('bob', 'Bob', 'whatsinaname'))
     for uname, name, plainpwd in users:
         command = f"INSERT INTO customers(username, name, pwd) values('{uname}', '{name}', '{_hash(plainpwd)}')"
         print("Executing {}".format(command))
