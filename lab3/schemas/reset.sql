@@ -51,8 +51,10 @@ CREATE TABLE performances
 CREATE TABLE tickets
 (
     identifier text unique primary key default (lower(hex(randomblob(16)))), --primary key
-    performance_id text, -- OwO
-    FOREIGN KEY (performance_id) REFERENCES performances(performance_id)
+    performance_id text, -- OwO,
+    username text,
+    FOREIGN KEY (performance_id) REFERENCES performances(performance_id),
+    FOREIGN KEY (username) REFERENCES customers(username)
 );
 
 
