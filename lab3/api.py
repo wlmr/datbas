@@ -34,13 +34,16 @@ _schema_path = 'schemas'
 conn = sqlite3.connect("applications.sqlite")
 
 
-def _hash(pwd: str) -> str:
+def _hash(text: str) -> str:
     sh = sha256()
-    sh.update(pwd.encode(encoding='utf-8'))
+    sh.update(text.encode(encoding='utf-8'))
     val = sh.hexdigest()
-    logger.debug(f"Password \"{pwd}\" hashed into \"{val}\"")
+    logger.debug(f"plaintext \"{text}\" hashed into \"{val}\"")
     return val
 
+
+def _sanitize(text: str) -> str:
+    return text.replace("'", "''")
 
 
 def url(resource):
@@ -150,9 +153,77 @@ def get_movies(imdb):
 
 @post('/performances')
 def add_performance():
-    #TODO
-    pass
+    curs = conn.cursor()
+    def _count(table, column, parameter):
+        curs.execute(f"select count() from {table} where {column} = ?", [parameter])
+        r = curs.fetchall()[0][0]
+        return r
 
+    #TODO
+    imdb = request.query.imdb
+    theater = request.query.theater
+    date = request.query.date
+    time = request.query.time
+    if not all((imdb, theater, date, time)):
+        response.status = 400
+        return "Missing attributes in request!"
+    # Looking for movie
+    imdb = _sanitize(imdb)
+    theater = _sanitize(theater)
+    date = _sanitize(date)
+    time = _sanitize(time)
+    if _count('movies', 'imdb', imdb) == 0:
+        response.status = 404
+        msg = f"No movie with imdb \"{imdb}\""
+        logger.error(msg)
+        return msg
+    elif _count('theatres', 'theatre_name', theater) == 0:
+        response.status = 404
+        msg = f"No Theater with name \"{theater}\""
+        logger.error(msg)
+        return msg
+    unique_performance = _hash(''.join((theater,imdb, date, time)))  # simple, but it should work just fine
+    if _count('performances', 'performance_id', unique_performance) > 0:
+        response.status = 404
+        msg = f"The performance with id \"{unique_performance}\" already exists!"
+        logger.error(msg)
+        return msg
+    curs.execute(f"select capacity from theatres where theatre_name = '{theater}'")
+    nbr_seats = curs.fetchall()[0][0]
+    command = f"insert into performances values('{theater}', '{imdb}', " \
+              f"'{date}', '{time}', '{unique_performance}', {nbr_seats})"
+    logger.debug(command)
+    curs.execute(command)
+    conn.commit()
+    response.status = 200
+    return_message = f"/performances/{unique_performance}"
+    return return_message
+
+
+
+
+
+
+
+
+@get('/performances')
+def get_performances():
+    """select p.performance_id, p.start_date, p.start_time, m.title, m.year, p.theatre_name, p.seats_left
+	from movies m, performances p
+    where m.imdb = p.imdb
+    group by p.performance_id;"""
+    response.content_type = 'application/json'
+    curs = conn.cursor()
+    curs.execute("""
+    select p.performance_id, p.start_date, p.start_time, m.title, m.year, p.theatre_name, p.seats_left
+	from movies m, performances p
+    where m.imdb = p.imdb
+    group by p.performance_id;""")
+    res = [{"performanceId": pid, "date": date, "startTime": time,
+            "title": title, "year": year, "theater": theatre, "remainingSeats": seats}
+           for pid, date, time, title, year, theatre, seats in curs]
+    response.status = 200
+    return format_response({"data": res})
 
 
 
