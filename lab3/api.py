@@ -7,8 +7,6 @@ from hashlib import sha256
 import logging
 
 
-
-
 def get_logging_instance(name: str,
                          level: int = logging.DEBUG) -> logging.Logger:
     lg = logging.getLogger(name)
@@ -22,14 +20,10 @@ def get_logging_instance(name: str,
 
 logger: logging.Logger = get_logging_instance(__name__)
 
-
-
-
 HOST = 'localhost'
 PORT = 4568
 
 _schema_path = 'schemas'
-
 
 conn = sqlite3.connect("applications.sqlite")
 
@@ -53,50 +47,6 @@ def url(resource):
 
 def format_response(d):
     return json.dumps(d, indent=4) + "\n"
-
-
-@get('/students')
-def get_students():
-    response.content_type = 'application/json'
-    query = """
-        SELECT s_id, s_name, gpa, size_hs
-        FROM   students
-        WHERE  1 = 1
-        """
-    params = []
-    if request.query.name:
-        query += "AND s_name = ?"
-        params.append(request.query.name)
-    if request.query.minGPA:
-        query += "AND gpa >= ?"
-        params.append(request.query.minGPA)
-    c = conn.cursor()
-    c.execute(
-        query,
-        params
-    )
-    s = [{"id": id, "name": name, "gpa": gpa, "hsSize": hs_size}
-         for (id, name, gpa, hs_size) in c]
-    response.status = 200
-    return format_response({"data": s})
-
-
-@get('/students/<id>')
-def get_student(id):
-    response.content_type = 'application/json'
-    c = conn.cursor()
-    c.execute(
-        """
-        SELECT s_id, s_name, gpa, size_hs
-        FROM   students
-        WHERE  s_id = ?
-        """,
-        [id]
-    )
-    s = [{"id": id, "name": name, "gpa": gpa, "hsSize": hs_size}
-         for (id, name, gpa, hs_size) in c]
-    response.status = 200
-    return format_response({"data": s})
 
 
 @get('/ping')
@@ -123,9 +73,9 @@ def reset():
     response.status = 200
     return "OK"
 
+
 @get('/movies')
 def get_movies():
-
     response.content_type = 'application/json'
     curs = conn.cursor()
 
@@ -142,6 +92,7 @@ def get_movies():
     response.status = 200
     return format_response({"data": res})
 
+
 @get('/movies/<imdb>')
 def get_movies(imdb):
     response.content_type = 'application/json'
@@ -152,15 +103,16 @@ def get_movies(imdb):
     return format_response({"data": res})
 
 
+# noinspection SpellCheckingInspection
 @post('/performances')
 def add_performance():
     curs = conn.cursor()
+
     def _count(table, column, parameter):
         curs.execute(f"select count() from {table} where {column} = ?", [parameter])
         r = curs.fetchall()[0][0]
         return r
 
-    #TODO
     imdb = request.query.imdb
     theater = request.query.theater
     date = request.query.date
@@ -183,7 +135,7 @@ def add_performance():
         msg = f"No Theater with name \"{theater}\""
         logger.error(msg)
         return msg
-    unique_performance = _hash(''.join((theater,imdb, date, time)), max_len=16)  # simple, but it should work just fine
+    unique_performance = _hash(''.join((theater, imdb, date, time)), max_len=16)  # simple, but it should work just fine
     print(len(unique_performance))
     if _count('performances', 'performance_id', unique_performance) > 0:
         response.status = 404
@@ -202,21 +154,14 @@ def add_performance():
     return return_message
 
 
-
-
-
-
-
-
+# noinspection SpellCheckingInspection
 @get('/performances')
 def get_performances():
     response.content_type = 'application/json'
     curs = conn.cursor()
-    curs.execute("""
-    select p.performance_id, p.start_date, p.start_time, m.title, m.year, p.theatre_name, p.seats_left
-	from movies m, performances p
-    where m.imdb = p.imdb
-    group by p.performance_id;""")
+    curs.execute("select p.performance_id, p.start_date, p.start_time, m.title, m.year, "
+                 "p.theatre_name, p.seats_left from movies m, performances p "
+                 "where m.imdb = p.imdb group by p.performance_id;")
     res = [{"performanceId": pid, "date": date, "startTime": time,
             "title": title, "year": year, "theater": theatre, "remainingSeats": seats}
            for pid, date, time, title, year, theatre, seats in curs]
@@ -230,23 +175,23 @@ def buy_ticket():
 
     def seats_left(p):
         curs.execute("select seats_left from performances where performance_id = ?", [p])
-        res = curs.fetchall()[0][0]
-        return res > 0
+        _result = curs.fetchall()[0][0]
+        return _result > 0
 
     def passwords_match(_usr, _hashed_pwd):
         curs.execute("select pwd from customers where username = ?", [_usr])
-        res = curs.fetchall()[0][0]
-        return res == _hashed_pwd
+        _result = curs.fetchall()[0][0]
+        return _result == _hashed_pwd
 
     def exists_user(_usr):
         curs.execute("select count() from customers where username = ?", [_usr])
-        res = curs.fetchall()[0][0]
-        return res > 0
+        _result = curs.fetchall()[0][0]
+        return _result > 0
 
     def exists_performance(_performance):
         curs.execute("select count() from performances where performance_id = ?", [_performance])
-        res = curs.fetchall()[0][0]
-        return res > 0
+        _result = curs.fetchall()[0][0]
+        return _result > 0
 
     usr = request.query.user
     performance = request.query.performance
@@ -281,14 +226,15 @@ def buy_ticket():
     conn.commit()
 
     curs.execute("select identifier from tickets where rowid = last_insert_rowid()")
-    res = curs.fetchall()[0][0]
+    id_string = curs.fetchall()[0][0]
     response.status = 200
-    return f"/tickets/{res}"
+    return f"/tickets/{id_string}"
+
 
 @get('/customers/<customer>/tickets')
 def get_tickets(customer):
     response.content_type = 'application/json'
-    #TODO! nicer sql statement!
+    # TODO! nicer sql statement!
     curs = conn.cursor()
     customer = _sanitize(customer)
     curs.execute("select performance_id from tickets where username = ? group by performance_id", [customer])
@@ -297,44 +243,15 @@ def get_tickets(customer):
     for performance in performances:
         curs.execute("select count () from tickets where performance_id = ? and username = ?", [performance, customer])
         tickets_taken = curs.fetchall()[0][0]
-        curs.execute("select theatre_name, start_date, start_time, imdb from performances where performance_id = ?", [performance])
+        curs.execute("select theatre_name, start_date, start_time, imdb from performances where performance_id = ?",
+                     [performance])
         theatre, date, time, imdb = curs.fetchone()
         curs.execute("select title, year from movies where imdb = ?", [imdb])
         title, year = curs.fetchone()
         total.append({"date": date, "startTime": time, "theater": theatre,
-                      "title": title, "year": year, "nbrOfTickets": tickets_taken })
+                      "title": title, "year": year, "nbrOfTickets": tickets_taken})
     response.status = 200
     return format_response({"data": total})
-
-# @post('/students')
-# def post_student():
-#     response.content_type = 'application/json'
-#     name = request.query.name
-#     gpa = request.query.gpa
-#     hsSize = request.query.hsSize
-#     if not (name and gpa and hsSize):
-#         response.status = 400
-#         return format_response({"error": "Missing parameter"})
-#     c = conn.cursor()
-#     c.execute(
-#         """
-#         INSERT
-#         INTO   students(s_name, gpa, size_hs)
-#         VALUES (?, ?, ?)
-#         """,
-#         [name, gpa, hsSize]
-#     )
-#     conn.commit()
-#     c.execute(
-#         """
-#         SELECT   s_id
-#         FROM     students
-#         WHERE    rowid = last_insert_rowid()
-#         """
-#     )
-#     id = c.fetchone()[0]
-#     response.status = 200
-#     return format_response({"id": id, "url": url(f"/students/{id}")})
 
 
 run(host=HOST, port=PORT, debug=True)
