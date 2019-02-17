@@ -7,6 +7,8 @@ DROP TABLE IF EXISTS customers;
 DROP TABLE IF EXISTS performances;
 DROP TABLE IF EXISTS tickets;
 
+DROP TRIGGER IF EXISTS ticket_sale;
+
 PRAGMA foreign_keys=ON;
 
 BEGIN TRANSACTION;
@@ -38,19 +40,31 @@ CREATE TABLE customers
 CREATE TABLE performances
 (
     theatre_name text, --compound with start_time, foreign key -> theatres
-    movie_title text, --foreign key -> movies
+    imdb text, --foreign key -> movies
     start_date date,
     start_time time,
-    performance_id int unique primary key,
-    FOREIGN KEY (movie_title) REFERENCES movies(title), --Might have to be the IMDB-key instead?
+    performance_id text unique primary key,
+    seats_left int,
+    FOREIGN KEY (imdb) REFERENCES movies(imdb), --Might have to be the IMDB-key instead?
     FOREIGN KEY (theatre_name) REFERENCES theatres(theatre_name)
 );
 CREATE TABLE tickets
 (
     identifier text unique primary key default (lower(hex(randomblob(16)))), --primary key
-    performance_id int, -- OwO
+    performance_id text, -- OwO
     FOREIGN KEY (performance_id) REFERENCES performances(performance_id)
 );
+
+
+CREATE TRIGGER IF NOT EXISTS ticket_sale
+	AFTER INSERT
+	ON tickets
+	BEGIN
+	    update performances
+	    set seats_left = seats_left - 1
+	    where performance_id = NEW.performance_id;
+	END;
+
 
 INSERT INTO movies(title, imdb, year, running_time) values('The Shape of Water', 'tt5580390', 2017, 142);
 INSERT INTO movies(title, imdb, year, running_time) values('Moonlight', 'tt4975722', 2016, 175);
