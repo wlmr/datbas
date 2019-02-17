@@ -34,12 +34,13 @@ _schema_path = 'schemas'
 conn = sqlite3.connect("applications.sqlite")
 
 
-def _hash(text: str) -> str:
+def _hash(text: str,
+          max_len: int = None) -> str:
     sh = sha256()
     sh.update(text.encode(encoding='utf-8'))
     val = sh.hexdigest()
     logger.debug(f"plaintext \"{text}\" hashed into \"{val}\"")
-    return val
+    return val if not max_len else val[:max_len]
 
 
 def _sanitize(text: str) -> str:
@@ -182,7 +183,8 @@ def add_performance():
         msg = f"No Theater with name \"{theater}\""
         logger.error(msg)
         return msg
-    unique_performance = _hash(''.join((theater,imdb, date, time)))  # simple, but it should work just fine
+    unique_performance = _hash(''.join((theater,imdb, date, time)), max_len=16)  # simple, but it should work just fine
+    print(len(unique_performance))
     if _count('performances', 'performance_id', unique_performance) > 0:
         response.status = 404
         msg = f"The performance with id \"{unique_performance}\" already exists!"
@@ -208,10 +210,6 @@ def add_performance():
 
 @get('/performances')
 def get_performances():
-    """select p.performance_id, p.start_date, p.start_time, m.title, m.year, p.theatre_name, p.seats_left
-	from movies m, performances p
-    where m.imdb = p.imdb
-    group by p.performance_id;"""
     response.content_type = 'application/json'
     curs = conn.cursor()
     curs.execute("""
@@ -226,6 +224,87 @@ def get_performances():
     return format_response({"data": res})
 
 
+@post('/tickets')
+def buy_ticket():
+    curs = conn.cursor()
+
+    def seats_left(p):
+        curs.execute("select seats_left from performances where performance_id = ?", [p])
+        res = curs.fetchall()[0][0]
+        return res > 0
+
+    def passwords_match(_usr, _hashed_pwd):
+        curs.execute("select pwd from customers where username = ?", [_usr])
+        res = curs.fetchall()[0][0]
+        return res == _hashed_pwd
+
+    def exists_user(_usr):
+        curs.execute("select count() from customers where username = ?", [_usr])
+        res = curs.fetchall()[0][0]
+        return res > 0
+
+    def exists_performance(_performance):
+        curs.execute("select count() from performances where performance_id = ?", [_performance])
+        res = curs.fetchall()[0][0]
+        return res > 0
+
+    usr = request.query.user
+    performance = request.query.performance
+    pwd = request.query.pwd
+    logger.debug("Checking arguments")
+    if not all((usr, performance, pwd)):
+        response.status = 400
+        return "Missing attributes in request!"
+
+    usr = _sanitize(usr)
+    performance = _sanitize(performance)
+    pwd = _sanitize(pwd)
+    logger.debug("Checking if user exists or performance exists")
+    if not exists_user(usr) or not exists_performance(performance):
+        response.status = 404
+        return "Error"
+
+    logger.debug("Checking if there are seats left")
+    if not seats_left(performance):
+        response.status = 404
+        return "No tickets left"
+
+    hashed_pwd = _hash(pwd)
+
+    logger.debug("Checking if passwords match")
+
+    if not passwords_match(usr, hashed_pwd):
+        response.status = 404
+        return "Wrong password"
+
+    curs.execute(f"insert into tickets(performance_id, username) values('{performance}', '{usr}')")
+    conn.commit()
+
+    curs.execute("select identifier from tickets where rowid = last_insert_rowid()")
+    res = curs.fetchall()[0][0]
+    response.status = 200
+    return f"/tickets/{res}"
+
+@get('/customers/<customer>/tickets')
+def get_tickets(customer):
+    response.content_type = 'application/json'
+    #TODO! nicer sql statement!
+    curs = conn.cursor()
+    customer = _sanitize(customer)
+    curs.execute("select performance_id from tickets where username = ? group by performance_id", [customer])
+    performances = [x[0] for x in curs.fetchall()]
+    total = []
+    for performance in performances:
+        curs.execute("select count () from tickets where performance_id = ? and username = ?", [performance, customer])
+        tickets_taken = curs.fetchall()[0][0]
+        curs.execute("select theatre_name, start_date, start_time, imdb from performances where performance_id = ?", [performance])
+        theatre, date, time, imdb = curs.fetchone()
+        curs.execute("select title, year from movies where imdb = ?", [imdb])
+        title, year = curs.fetchone()
+        total.append({"date": date, "startTime": time, "theater": theatre,
+                      "title": title, "year": year, "nbrOfTickets": tickets_taken })
+    response.status = 200
+    return format_response({"data": total})
 
 # @post('/students')
 # def post_student():
