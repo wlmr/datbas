@@ -55,10 +55,10 @@ CREATE TABLE tickets
 INSERT INTO movies(title, imdb, year, running_time) values('The Shape of Water', 'tt5580390', 2017, 142);
 INSERT INTO movies(title, imdb, year, running_time) values('Moonlight', 'tt4975722', 2016, 175);
 INSERT INTO movies(title, imdb, year, running_time) values('Spotlight', 'tt1895587', 2015, 202);
-INSERT INTO movies(title, imdb, year, running_time) values('Birdman', 'tt0468569', 2014, 152);
+INSERT INTO movies(title, imdb, year, running_time) values('Birdman', 'tt2562232', 2014, 152);
 
 INSERT INTO theatres VALUES('Kino',10);
 INSERT INTO theatres VALUES('Södran',16);
-INSERT INTO theatres VALUES('Skania',100);
+INSERT INTO theatres VALUES('Skandia',100);
 
 COMMIT;
