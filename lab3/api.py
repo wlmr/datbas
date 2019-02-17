@@ -2,8 +2,28 @@ from bottle import get, post, run, request, response
 import sqlite3
 import json
 import os
-
 from hashlib import sha256
+
+import logging
+
+
+
+
+def get_logging_instance(name: str,
+                         level: int = logging.DEBUG) -> logging.Logger:
+    lg = logging.getLogger(name)
+    lg.setLevel(level)
+    stream = logging.StreamHandler()
+    stream.setLevel(level)
+    stream.setFormatter(logging.Formatter('[%(asctime)s] [%(name)s.%(funcName)s] : %(message)s'))
+    lg.addHandler(stream)
+    return lg
+
+
+logger: logging.Logger = get_logging_instance(__name__)
+
+
+
 
 HOST = 'localhost'
 PORT = 4568
@@ -12,6 +32,15 @@ _schema_path = 'schemas'
 
 
 conn = sqlite3.connect("applications.sqlite")
+
+
+def _hash(pwd: str) -> str:
+    sh = sha256()
+    sh.update(pwd.encode(encoding='utf-8'))
+    val = sh.hexdigest()
+    logger.debug(f"Password \"{pwd}\" hashed into \"{val}\"")
+    return val
+
 
 
 def url(resource):
@@ -68,14 +97,13 @@ def get_student(id):
 
 @get('/ping')
 def ping():
+    logger.debug('Ping recieved!')
     return "pong"
+
 
 @post('/reset')
 def reset():
-    def _hash(pwd: str) -> str:
-        sh = sha256()
-        sh.update(pwd.encode(encoding='utf-8'))
-        return sh.hexdigest()
+    logger.debug("Reset recieved!")
     cursor = conn.cursor()
     with open(os.path.join(_schema_path, 'reset.sql'), 'r') as f:
         sqls = f.read()
@@ -85,42 +113,78 @@ def reset():
              ('bob', 'Bob', 'whatsinaname'))
     for uname, name, plainpwd in users:
         command = f"INSERT INTO customers(username, name, pwd) values('{uname}', '{name}', '{_hash(plainpwd)}')"
-        print("Executing {}".format(command))
+        logger.info("Executing {}".format(command))
         cursor.execute(command)
     conn.commit()
-    # TODO! reset database!
     response.status = 200
     return "OK"
 
-@post('/students')
-def post_student():
+@get('/movies')
+def get_movies():
+
     response.content_type = 'application/json'
-    name = request.query.name
-    gpa = request.query.gpa
-    hsSize = request.query.hsSize
-    if not (name and gpa and hsSize):
-        response.status = 400
-        return format_response({"error": "Missing parameter"})
-    c = conn.cursor()
-    c.execute(
-        """
-        INSERT
-        INTO   students(s_name, gpa, size_hs)
-        VALUES (?, ?, ?)
-        """,
-        [name, gpa, hsSize]
-    )
-    conn.commit()
-    c.execute(
-        """
-        SELECT   s_id
-        FROM     students
-        WHERE    rowid = last_insert_rowid()
-        """
-    )
-    id = c.fetchone()[0]
+    curs = conn.cursor()
+
+    params = []
+    sql_query = "select imdb, title, year from movies where 1 = 1"
+    if request.query.title:
+        sql_query += ' and title = ?'
+        params.append(request.query.title)
+    if request.query.year:
+        sql_query += ' and year = ?'
+        params.append(request.query.year)
+    curs.execute(sql_query, params)
+    res = [{"title": t, "imdb": imdb, "year": y} for imdb, t, y in curs]
     response.status = 200
-    return format_response({"id": id, "url": url(f"/students/{id}")})
+    return format_response({"data": res})
+
+@get('/movies/<imdb>')
+def get_movies(imdb):
+    response.content_type = 'application/json'
+    curs = conn.cursor()
+    curs.execute('select imdb, title, year from movies where imdb = ?', [imdb])
+    res = [{"title": t, "imdb": i, "year": y} for i, t, y in curs]
+    response.status = 200
+    return format_response({"data": res})
+
+
+@post('/performances')
+def add_performance():
+    #TODO
+    pass
+
+
+
+
+# @post('/students')
+# def post_student():
+#     response.content_type = 'application/json'
+#     name = request.query.name
+#     gpa = request.query.gpa
+#     hsSize = request.query.hsSize
+#     if not (name and gpa and hsSize):
+#         response.status = 400
+#         return format_response({"error": "Missing parameter"})
+#     c = conn.cursor()
+#     c.execute(
+#         """
+#         INSERT
+#         INTO   students(s_name, gpa, size_hs)
+#         VALUES (?, ?, ?)
+#         """,
+#         [name, gpa, hsSize]
+#     )
+#     conn.commit()
+#     c.execute(
+#         """
+#         SELECT   s_id
+#         FROM     students
+#         WHERE    rowid = last_insert_rowid()
+#         """
+#     )
+#     id = c.fetchone()[0]
+#     response.status = 200
+#     return format_response({"id": id, "url": url(f"/students/{id}")})
 
 
 run(host=HOST, port=PORT, debug=True)
